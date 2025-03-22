@@ -1,0 +1,427 @@
+# Slice The Rope - TECHNICAL DESIGN DOCUMENT
+
+## Table of Contents
+1. Introduction
+2. Architecture Overview
+3. Class Structure
+4. Game Logic
+5. Physics System
+6. User Interface
+7. State Management
+8. Data Management
+9. Extension Strategy
+10. Performance Considerations
+
+## 1. Introduction
+
+This Technical Design Document (TDD) outlines the architecture and implementation details for the "Slice The Rope" game, a physics-based puzzle game where players cut ropes to drop candy into Om Nom's mouth while collecting stars.
+
+### 1.1 Technology Stack
+- Language: JavaScript (ES6+)
+- Rendering: HTML5 Canvas
+- Storage: Browser LocalStorage
+- Architecture: Component-based design
+
+### 1.2 Features
+- Physics-based gameplay with realistic rope dynamics
+- Interactive game elements (bubbles, air pillows)
+- Level progression system with predefined levels
+- Custom level editor
+- Shop system with unlockable items
+- Character animations
+
+## 2. Architecture Overview
+
+The game follows a component-based architecture with a central Game class that coordinates all other components.
+
+### 2.1 High-level Architecture Diagram
+```
+                      +-------------------+
+                      |       Game        |
+                      +-------------------+
+                      | - gameLoop()      |
+                      | - update()        |
+                      | - render()        |
+                      | - initLevel()     |
+                      +--------+----------+
+                               |
+                               | manages
+                               |
+        +--------------------------------------------+
+        |                      |                     |
+        v                      v                     v
++---------------+     +----------------+     +---------------+
+| Game Objects  |     | Game Systems   |     | Game States   |
++---------------+     +----------------+     +---------------+
+| - Candy       |     | - Physics      |     | - Playing     |
+| - OmNom       |     | - Rendering    |     | - Editor      |
+| - Rope        |     | - Input        |     | - Home        |
+| - Star        |     | - Collision    |     | - Shop        |
+| - Bubble      |     | - Storage      |     | - GameOver    |
+| - AirPillow   |     +----------------+     +---------------+
++---------------+
+```
+
+### 2.2 Module Dependency Diagram
+```
+                +---------------+
+                | index.js      |
+                +-------+-------+
+                        |
+                        v
+                +---------------+
+                |   Game.js     |
+                +-------+-------+
+                        |
+        +---------------+---------------+
+        |               |               |
+        v               v               v
++---------------+ +---------------+ +---------------+
+|  Game Objects | |  UI Elements  | |  Systems      |
++---------------+ +---------------+ +---------------+
+| - Candy.js    | | - UI.js       | | - Levels.js   |
+| - OmNom.js    | | - Popup.js    | | - LevelEditor |
+| - Rope.js     | | - HomeManager | | - Shop.js     |
+| - Star.js     | | - Trace.js    | | - CoinsEffect |
+| - Bubble.js   | +---------------+ +---------------+
+| - AirPillow.js|
++---------------+
+```
+
+## 3. Class Structure
+
+### 3.1 Core Game Class
+```
++-------------------------------------------+
+| Game                                      |
++-------------------------------------------+
+| # Properties                              |
+| - canvas: HTMLCanvasElement               |
+| - ctx: CanvasRenderingContext2D           |
+| - gameState: string                       |
+| - currentLevel: number                    |
+| - isRunning: boolean                      |
+| - gravity: number                         |
+| - ropes: Rope[]                           |
+| - stars: Star[]                           |
+| - bubbles: Bubble[]                       |
+| - airPillows: AirPillow[]                 |
+|                                           |
+| # Methods                                 |
+| + constructor()                           |
+| + init(): void                            |
+| + initLevel(): void                       |
+| + update(): void                          |
+| + render(): void                          |
+| + gameLoop(): void                        |
+| + setupEventListeners(): void             |
+| + checkStarCollection(): void             |
+| + checkOmNomCollision(): void             |
+| + handleLevelComplete(): void             |
+| + handleGameOver(): void                  |
+| + goToNextLevel(): void                   |
+| + showHome(): void                        |
+| + showEditor(): void                      |
+| + showShop(): void                        |
+| + saveProgress(): void                    |
+| + loadSavedProgress(): void               |
++-------------------------------------------+
+```
+
+### 3.2 Game Objects Class Diagram
+```
++---------------+   +---------------+   +---------------+
+| OmNom         |   | Candy         |   | Star          |
++---------------+   +---------------+   +---------------+
+| - x: number   |   | - x: number   |   | - x: number   |
+| - y: number   |   | - y: number   |   | - y: number   |
+| - radius: num |   | - vx: number  |   | - radius: num |
+| - mood: string|   | - vy: number  |   | - rotation: num|
++---------------+   +---------------+   +---------------+
+| + draw()      |   | + draw()      |   | + draw()      |
+| + update()    |   | + update()    |   | + update()    |
+| + showHappy() |   | + applyGravity|   | + checkCollision|
++---------------+   +---------------+   +---------------+
+
++---------------+   +---------------+   +---------------+
+| Rope          |   | Bubble        |   | AirPillow     |
++---------------+   +---------------+   +---------------+
+| - points: []  |   | - x: number   |   | - x: number   |
+| - segments: num|   | - y: number   |   | - y: number   |
+| - attached: bool|  | - radius: num |   | - width: num  |
++---------------+   +---------------+   +---------------+
+| + draw()      |   | + draw()      |   | + draw()      |
+| + update()    |   | + update()    |   | + update()    |
+| + checkCut()  |   | + pop()       |   | + activate()  |
++---------------+   +---------------+   +---------------+
+```
+
+### 3.3 UI Components
+```
++---------------+   +---------------+   +---------------+
+| UI            |   | Popup         |   | HomeManager   |
++---------------+   +---------------+   +---------------+
+| - game: Game  |   | - game: Game  |   | - game: Game  |
+| - buttons: {}  |   | - isVisible: bool|  | - buttons: {} |
++---------------+   +---------------+   +---------------+
+| + draw()      |   | + show()      |   | + show()      |
+| + updateLevelUI|   | + hide()      |   | + hide()      |
+| + checkButtonClick|  | + update()    |   | + handleClick()|
++---------------+   +---------------+   +---------------+
+
++---------------+   +---------------+   +---------------+
+| LevelEditor   |   | Shop          |
++---------------+   +---------------+   +---------------+
+| - game: Game  |   | - game: Game  |
+| - editingLevel: {}| | - categories: []|
+| - selectedTool: str| | - items: []    |
++---------------+   +---------------+   +---------------+
+| + show()      |   | + show()      |
+| + hide()      |   | + hide()      |
+| + draw()      |   | + draw()      |
+| + handleClick()|   | + purchaseItem()|
+| + saveAndPlay()|   | + handleClick()|
++---------------+   +---------------+
+```
+
+## 4. Game Logic
+
+### 4.1 Game Loop Pattern
+```
+       +----------------+
+       | requestAnimFrame|
+       +--------+-------+
+                |
+                v
+       +----------------+
+       |   gameLoop()   |
+       +--------+-------+
+                |
+        +-------+-------+
+        |               |
+        v               v
++----------------+ +----------------+
+|    update()    | |    render()    |
++----------------+ +----------------+
+| - Update physics| | - Clear canvas |
+| - Update objects| | - Draw objects |
+| - Check collisions| | - Draw UI     |
++----------------+ +----------------+
+```
+
+### 4.2 Level Initialization Flowchart
+```
++----------------+     +----------------+     +----------------+
+| initLevel()    |---->| Load level data|---->| Create objects |
++----------------+     +----------------+     +----------------+
+                                               |
++----------------+     +----------------+      |
+| Start gameplay |<----| Setup initial  |<-----
++----------------+     | positions      |
+                       +----------------+
+```
+
+## 5. Physics System
+
+### 5.1 Physics Component Diagram
+```
++------------------------------------------+
+|             Physics System               |
++------------------------------------------+
+|                                          |
+|  +------------+        +---------------+ |
+|  | Gravity    |        | Collision     | |
+|  +------------+        +---------------+ |
+|  | - Apply to |        | - Check star  | |
+|  |   objects  |        |   collection  | |
+|  | - Calculate|        | - Check candy | |
+|  |   velocity |        |   vs OmNom    | |
+|  +------------+        +---------------+ |
+|                                          |
+|  +------------+        +---------------+ |
+|  | Rope       |        | Bubble & Air  | |
+|  | Physics    |        | Pillow Physics| |
+|  +------------+        +---------------+ |
+|  | - Segments |        | - Force       | |
+|  | - Tension  |        |   application | |
+|  | - Cutting  |        | - Floating    | |
+|  +------------+        +---------------+ |
++------------------------------------------+
+```
+
+### 5.2 Rope Physics Sequence
+```
++-------+    +----------+    +-----------+    +----------+
+| Start |--->| Apply    |--->| Calculate |--->| Resolve  |
++-------+    | gravity  |    | new pos   |    | segments |
+              +----------+    +-----------+    +----------+
+                                                   |
++-------+    +----------+    +-----------+         |
+| End   |<---| Update   |<---| Apply     |<--------
++-------+    | position |    | constraints|
+              +----------+    +-----------+
+```
+
+## 6. User Interface
+
+### 6.1 UI Layout
+```
++-------------------------------------------------------+
+|                                                       |
+| +---Level---+  +---Stars---+  +---Coins---+           |
+| |  Level X  |  |  Stars: Y |  |  Coins: Z |           |
+| +-----------+  +-----------+  +-----------+           |
+|                                                       |
+|                                                       |
+|                                                       |
+|                     Game Area                         |
+|                                                       |
+|                                                       |
+|                                                       |
+|                                                       |
+|                                                       |
+|                                                       |
+| +----------+  +----------+  +----------+  +--------+  |
+| | Home Btn |  | Edit Btn |  | Shop Btn |  | Next   |  |
+| +----------+  +----------+  +----------+  +--------+  |
++-------------------------------------------------------+
+```
+
+### 6.2 Popup State Diagram
+```
++------------+     +-----------------+     +------------+
+| Game       |---->| Show Popup      |---->| Wait for   |
+| Event      |     | - Level Complete|     | User Input |
++------------+     | - Game Over     |     +------------+
+                   +-----------------+            |
+                            ^                     v
+                            |              +------------+
+                            +--------------| Handle     |
+                                           | Button Click|
+                                           +------------+
+```
+
+## 7. State Management
+
+### 7.1 Game State Diagram
+```
+                  +------------+
+         +------->|    Home    |<------+
+         |        +------------+       |
+         |              |              |
+         |              v              |
++------------+    +------------+    +------------+
+|   Editor   |<-->|   Playing  |<-->|    Shop    |
++------------+    +------------+    +------------+
+                      |    ^
+                      v    |
+                +------------+    +------------+
+                | LevelComplete|   | Game Over  |
+                +------------+    +------------+
+```
+
+### 7.2 State Transition Table
+| Current State | Event              | Next State     | Action                           |
+|---------------|--------------------|--------------  |---------------------------------|
+| Home          | Start Game         | Playing        | Initialize level                 |
+| Home          | Open Editor        | Editor         | Open level editor                |
+| Home          | Open Shop          | Shop           | Open shop interface              |
+| Playing       | Level Completed    | LevelComplete  | Show completion popup            |
+| Playing       | Game Over          | GameOver       | Show game over popup             |
+| Playing       | Edit Button        | Editor         | Open level editor                |
+| LevelComplete | Next Level         | Playing        | Load next level                  |
+| GameOver      | Try Again          | Playing        | Reload current level             |
+| Editor        | Save & Play        | Playing        | Save custom level and play it    |
+| Shop          | Back Button        | Home/Playing   | Return to previous state         |
+
+## 8. Data Management
+
+### 8.1 Level Data Structure
+```
++-----------------------------------------------------+
+| Level                                               |
++-----------------------------------------------------+
+| - id: number                                        |
+| - name: string                                      |
+| - anchors: {x: number, y: number}[]                 |
+| - candy: {x: number, y: number}                     |
+| - stars: {x: number, y: number}[]                   |
+| - bubbles?: {x: number, y: number}[]                |
+| - airPillows?: {x: number, y: number, width: number,|
+|                height: number}[]                    |
+| - omNom: {x: number, y: number}                     |
+| - ropeSegments: number                              |
+| - description: string                               |
++-----------------------------------------------------+
+```
+
+### 8.2 Storage System
+```
++------------------------+    +-------------------------+
+| Browser LocalStorage   |<-->| Game Save/Load Methods  |
++------------------------+    +-------------------------+
+| - sliceTheRope_currentLevel| | - loadSavedProgress()    |
+| - sliceTheRope_customLevels| | - saveProgress()         |
++------------------------+    +-------------------------+
+```
+
+## 9. Extension Strategy
+
+### 9.1 Adding New Game Elements
+```
++------------------+    +--------------------+    +------------------+
+| Create new class |---→| Import in Game.js  |---→| Add to initLevel |
++------------------+    +--------------------+    +------------------+
+        |                                                 |
+        v                                                 v
++------------------+    +--------------------+    +------------------+
+| Define draw()    |    | Define update()    |    | Add collision    |
+| method           |    | method             |    | handling         |
++------------------+    +--------------------+    +------------------+
+```
+
+### 9.2 Level Editor Extension
+```
++------------------+    +--------------------+    +------------------+
+| Add new tool     |---→| Add object to      |---→| Update save/load |
+| button           |    | level data         |    | functionality    |
++------------------+    +--------------------+    +------------------+
+```
+
+## 10. Performance Considerations
+
+### 10.1 Rendering Optimization
+- Only update visible objects
+- Limit particle effects
+- Use distance checks before applying physics
+- Conditionally render based on game state
+
+### 10.2 Memory Management
+- Object pooling for frequently created objects (particles)
+- Cleanup unused objects
+- Efficient data structures for collision detection
+
+### 10.3 Input Handling
+- Debounce/throttle event handlers
+- Process input based on current game state
+- Optimize hit detection
+
+## 11. Implementation Guidelines
+
+### 11.1 Code Organization
+- Use ES6 modules for clean separation
+- Each game object should be in its own file
+- Clearly define interfaces between components
+- Document module dependencies
+
+### 11.2 Naming Conventions
+- Classes: PascalCase (e.g., AirPillow)
+- Methods/Variables: camelCase (e.g., handleClick)
+- Constants: UPPER_CASE (e.g., MAX_GRAVITY)
+- Private properties: prefixed with underscore (e.g., _internalState)
+
+### 11.3 Error Handling
+- Validate level data during initialization
+- Provide fallbacks for missing assets
+- Log errors for debugging
+- Implement recovery mechanisms for unexpected states 
