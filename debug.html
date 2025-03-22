@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - Slice the Rope</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        #log {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Slice the Rope - Debug Console</h1>
+    
+    <div class="controls">
+        <button id="clearCache">Clear Cache</button>
+        <button id="testLoad">Test Load Game</button>
+        <button id="checkFiles">Check Files</button>
+    </div>
+    
+    <div id="log"></div>
+    
+    <script>
+        const logEl = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            entry.className = type;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        // Clear browser cache for this site
+        document.getElementById('clearCache').addEventListener('click', () => {
+            log('Attempting to clear cache...');
+            
+            // Redirect to the game with cache-busting parameters
+            const clearCacheUrl = 'index.html?clearcache=' + Date.now();
+            log(`Redirecting to: ${clearCacheUrl}`, 'info');
+            
+            // Open in a new tab
+            window.open(clearCacheUrl, '_blank');
+        });
+        
+        // Test loading the game
+        document.getElementById('testLoad').addEventListener('click', () => {
+            log('Testing game load...');
+            
+            // Load game in an iframe to test
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = 'index.html?test=' + Date.now();
+            
+            iframe.onload = () => {
+                log('Game iframe loaded', 'success');
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 2000);
+            };
+            
+            iframe.onerror = (error) => {
+                log('Error loading game: ' + error, 'error');
+            };
+            
+            document.body.appendChild(iframe);
+        });
+        
+        // Check if key game files exist
+        document.getElementById('checkFiles').addEventListener('click', async () => {
+            log('Checking key files...');
+            
+            const files = [
+                'main.js',
+                'classes/game.js',
+                'classes/UI.js',
+                'classes/Shop.js',
+                'classes/Levels.js',
+                'classes/HomeManager.js'
+            ];
+            
+            for (const file of files) {
+                try {
+                    const response = await fetch(file + '?check=' + Date.now());
+                    if (response.ok) {
+                        log(`✓ ${file} - Found (${response.status})`, 'success');
+                    } else {
+                        log(`✗ ${file} - Error (${response.status})`, 'error');
+                    }
+                } catch (error) {
+                    log(`✗ ${file} - Exception: ${error.message}`, 'error');
+                }
+            }
+            
+            log('File check complete');
+        });
+        
+        // Init
+        log('Debug tool initialized. Use the buttons above to troubleshoot.', 'info');
+    </script>
+</body>
+</html> 

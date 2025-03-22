@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Slice the Rope</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #1E90FF);
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            border-radius: 10px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+        }
+        .game-container {
+            position: relative;
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #4b2e83;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            transition: opacity 0.5s ease-out;
+        }
+        .loading h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 8px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-log {
+            margin-top: 20px;
+            width: 80%;
+            max-width: 600px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-align: center;
+        }
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <h1>Slice the Rope</h1>
+        <div class="spinner"></div>
+        <div class="loading-log" id="loading-log">Initializing game...</div>
+    </div>
+    <div class="game-container">
+        <!-- Canvas will be inserted here by the Game class -->
+    </div>
+    <div class="debug-info" id="debug-info">
+        Press F12 to open console for debugging
+    </div>
+    
+    <script type="module" src="main.js?v=1.0.2"></script>
+    <script>
+        // Add loading logs
+        const loadingLog = document.getElementById('loading-log');
+        
+        function addLoadingLog(message) {
+            if (loadingLog) {
+                loadingLog.textContent = message;
+                console.log('[Loading] ' + message);
+            }
+        }
+        
+        // Track loading stages
+        addLoadingLog('DOM loaded, initializing game...');
+        
+        // Check if browser is supported
+        if (!window.requestAnimationFrame) {
+            addLoadingLog('ERROR: Your browser does not support requestAnimationFrame. Please try a modern browser.');
+        }
+        
+        // Hide loading screen when game is loaded
+        window.addEventListener('load', () => {
+            addLoadingLog('Window loaded, waiting for game initialization...');
+            
+            // Set a timeout to detect if the game is taking too long to load
+            const timeoutTimer = setTimeout(() => {
+                addLoadingLog('Game is taking longer than expected to load. Check console for errors (F12).');
+            }, 5000);
+            
+            setTimeout(() => {
+                addLoadingLog('Removing loading screen...');
+                const loading = document.getElementById('loading');
+                loading.style.opacity = '0';
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                    clearTimeout(timeoutTimer);
+                }, 500);
+            }, 1500);
+        });
+        
+        // Expose game debug functions to console
+        window.gameDebug = {
+            checkLoaded: () => {
+                if (window.game) {
+                    console.log('Game is loaded:', window.game);
+                    return "Game loaded";
+                } else {
+                    console.log('Game is not loaded yet');
+                    return "Game not loaded";
+                }
+            },
+            restartGame: () => {
+                location.reload();
+            }
+        };
+        
+        // Add a debug helper to check if the game is loading
+        console.log('Index.html loaded. Waiting for game initialization...');
+    </script>
+</body>
+</html> 

@@ -1,0 +1,187 @@
+export class Bubble {
+  constructor(x, y, radius = 60) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.glowOpacity = 0.5;
+    this.containsCandy = false;
+    this.capturedCandy = null;
+    this.liftSpeed = 1.2; // Upward speed when lifting candy
+    this.active = true; // Whether the bubble is active or popped
+    this.popAnimation = 0; // Animation counter for popping effect
+    this.popAnimationDuration = 20; // How long the popping animation lasts
+    this.wobbleAmount = 0; // Wobble animation for floating bubble
+    this.wobbleDirection = 1; // Direction of wobble
+    
+    // Debug message to confirm this constructor was called
+    console.log("Bubble created at:", x, y);
+  }
+
+  draw(ctx) {
+    if (!this.active) {
+      // Draw pop animation if bubble was popped
+      if (this.popAnimation < this.popAnimationDuration) {
+        const progress = this.popAnimation / this.popAnimationDuration;
+        const size = this.radius * (1 - progress);
+        
+        // Draw particles flying outward
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          const distance = this.radius * progress * 1.5;
+          const particleX = this.x + Math.cos(angle) * distance;
+          const particleY = this.y + Math.sin(angle) * distance;
+          const particleSize = this.radius * 0.2 * (1 - progress);
+          
+          ctx.beginPath();
+          ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(173, 216, 230, ${1 - progress})`;
+          ctx.fill();
+        }
+        
+        // Increment pop animation
+        this.popAnimation++;
+      }
+      return; // Don't draw the bubble itself if popped
+    }
+    
+    // Calculate bubble wobble for floating effect
+    this.wobbleAmount += 0.05 * this.wobbleDirection;
+    if (Math.abs(this.wobbleAmount) > 0.5) {
+      this.wobbleDirection *= -1;
+    }
+    
+    const wobbledY = this.y + Math.sin(Date.now() / 500) * 3; // Gentle floating movement
+    
+    // Draw outer glow
+    ctx.save();
+    const gradient = ctx.createRadialGradient(
+      this.x, wobbledY, this.radius * 0.7,
+      this.x, wobbledY, this.radius * 1.3
+    );
+    gradient.addColorStop(0, `rgba(173, 216, 230, 0.1)`);
+    gradient.addColorStop(1, `rgba(173, 216, 230, 0)`);
+    
+    ctx.beginPath();
+    ctx.arc(this.x, wobbledY, this.radius * 1.3, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.restore();
+    
+    // Draw main bubble
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(this.x, wobbledY, this.radius, 0, Math.PI * 2);
+    
+    // Create bubble gradient
+    const bubbleGradient = ctx.createRadialGradient(
+      this.x - this.radius * 0.3, wobbledY - this.radius * 0.3, this.radius * 0.1,
+      this.x, wobbledY, this.radius
+    );
+    bubbleGradient.addColorStop(0, `rgba(255, 255, 255, 0.8)`);
+    bubbleGradient.addColorStop(0.4, `rgba(173, 216, 230, 0.6)`);
+    bubbleGradient.addColorStop(1, `rgba(173, 216, 230, 0.2)`);
+    
+    ctx.fillStyle = bubbleGradient;
+    ctx.fill();
+    
+    // Draw bubble outline
+    ctx.strokeStyle = `rgba(173, 216, 230, 0.8)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw highlight
+    ctx.beginPath();
+    ctx.arc(this.x - this.radius * 0.3, wobbledY - this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
+  checkCollision(candy) {
+    if (!this.active) return false;
+    
+    const dx = candy.x - this.x;
+    const dy = candy.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Check if most of the candy is inside the bubble
+    return distance < this.radius - candy.radius * 0.7;
+  }
+
+  applyEffect(candy) {
+    if (!this.active) return;
+    
+    // If the bubble already contains candy, update candy position
+    if (this.containsCandy && this.capturedCandy === candy) {
+      // Keep candy centered in bubble and move upward
+      candy.x = this.x;
+      candy.y = this.y;
+      
+      // Move the bubble (and candy) upward
+      this.y -= this.liftSpeed;
+      
+      // Don't reset candy velocity completely to allow rope constraints to work
+      // Dampen velocity instead
+      candy.vx *= 0.7;
+      candy.vy *= 0.7;
+      
+      return;
+    }
+    
+    // Otherwise, check if candy is entering the bubble
+    if (!this.containsCandy && this.checkCollision(candy)) {
+      this.containsCandy = true;
+      this.capturedCandy = candy;
+      
+      // Don't center candy immediately - allow ropes to have some influence
+      // Apply a gentler pull toward bubble center
+      const dx = this.x - candy.x;
+      const dy = this.y - candy.y;
+      candy.x += dx * 0.2;
+      candy.y += dy * 0.2;
+      
+      // Dampen velocity but don't stop it completely
+      candy.vx *= 0.5;
+      candy.vy *= 0.5;
+      
+      console.log("Candy captured by bubble, ropes still constrain");
+    }
+  }
+  
+  update() {
+    // If bubble is moving upwards with candy, apply slight horizontal wobble
+    if (this.containsCandy && this.active) {
+      this.x += Math.sin(Date.now() / 800) * 0.3;
+    }
+  }
+  
+  // IMPORTANT: This is the method that was missing or causing issues
+  checkClick(x, y) {
+    console.log("checkClick called", x, y, this.x, this.y, this.radius);
+    if (!this.active) return false;
+    
+    const dx = x - this.x;
+    const dy = y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    return distance < this.radius;
+  }
+  
+  pop() {
+    console.log("Bubble popped!");
+    if (!this.active) return;
+    
+    this.active = false;
+    
+    // Release candy if present
+    if (this.containsCandy && this.capturedCandy) {
+      this.capturedCandy.vy = 1; // Start falling
+      this.containsCandy = false;
+      this.capturedCandy = null;
+    }
+    
+    // Start pop animation
+    this.popAnimation = 0;
+  }
+} 
