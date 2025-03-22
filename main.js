@@ -1,4 +1,4 @@
-import { Game } from './classes/game.js';
+import { Game } from './classes/Game.js';
 
 // Add error handling and detailed logging
 console.log('[Main] Script loading...');
